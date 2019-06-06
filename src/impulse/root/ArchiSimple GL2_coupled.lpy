@@ -53,7 +53,7 @@ MSRacFine = map(float, IOtable.extract_dataframe(taboffre, taboffre.keys(), 'V1'
 decalj=3  # decalage en jour dans TT pour prendre le premier jour
 Rseed = 0
 
-option_visuescale = 0#1
+option_visuescale = 1#0#1
 
 #print str(taboffre.keys()[2])=='leo' #,TT, MSRacFine
 #bug pour giga car cle dans taboffr pas ds le meme sens??
@@ -97,10 +97,26 @@ origin = [v*100 for v in origin]
 
 
 mysoil = soil_interface.Soil3D(origin, size_, dxyz_)
-print origin, size_, dxyz_
+mysoil.add_property('root_length',0)
+properties_3ds = ['asw_t', 'tsw_t', 'Corg', 'Norg', 'm_NO3', 'm_NH4', 'm_soil_vol', 'm_Tsol', 'm_DA', 'ftsw_t']
+# signification des properties:
+# asw_t : quantite d'eau libre pour plante dans le voxel au temps t (mm)
+# tsw_t : quantite d'eau totale dans le voxel au temps t (mm)
+# ftsw_t : fraction d'eau ranspirable = asw_t/tsw_t
+# m_soil_vol : volume des voxels (m3)
+# m_DA : densite apparente du sol par voxel (g.cm-3)
+# m_Tsol: Temperature sol (degreC - entree actuellement forcee par meteo)
+# Corg: (kg C dans le voxel)
+# Norg: (kg N dans le voxel)
+# m_NH4: (kg N NH4 dans le voxel)
+# m_NO3: (kg N NO3 dans le voxel)
 
-PLOT_PROPERTY = 'root_density' #'ftsw_t'#-1
+#mise a jour de ttes les proprietes de sol dans l'interface sol
+mysoil.set_3ds_properties(S, properties_3ds)
+#print origin, size_, dxyz_
 
+PLOT_PROPERTY = 'ftsw_t'#'root_length' #-1
+TTdays = range(1,350,10) # TT des changements de jour auquel faire le calcul de bilan hydrique / Sol
 
 
 
@@ -152,13 +168,13 @@ class primord:
     self.ordre=ordre
 
 class seg:
-  def __init__(self, jourForm,diametre,longueur=0.,id_pointe_axe=0,ordre=1,posO=[0,0,0]):
+  def __init__(self, jourForm,diametre,longueur=0.,id_pointe_axe=0,ordre=1):
     self.jourForm=jourForm
     self.diametre=diametre
     self.longueur=longueur
     self.id_pointe_axe=id_pointe_axe
     self.ordre=ordre
-    self.posO=posO
+
 
 #########   definition sol   #########
 
@@ -319,12 +335,12 @@ out = []
 # 
 # ! unites affichees en commentaire sont pas bonnes!: longueur/diametre: tout en mm!!; pas de temps = degre.jour!
 
-# modify segment object to know its position with posO and increment voxel density
+# modify segment object to know its position with two ?P before and after
 # import soil module and impulse soil interface
-#  compute root soil density at each step
-#  compute soil water balance every step
-# a faire tou le n (10?) steps??
-#plus visiblement probleme d'echelle a resoudre
+#  compute root soil length per voxel at each step
+#  compute soil water balance every step using the frid
+# visualise densite/ftsw_t output
+#ne faire le water balance que tous les n stpes!!!!
 
 
 
@@ -597,6 +613,24 @@ def Start():
   random.seed(Rseed)
   
   
+  mysoil.add_property('root_length',0)
+  properties_3ds = ['asw_t', 'tsw_t', 'Corg', 'Norg', 'm_NO3', 'm_NH4', 'm_soil_vol', 'm_Tsol', 'm_DA', 'ftsw_t']
+  # signification des properties:
+  # asw_t : quantite d'eau libre pour plante dans le voxel au temps t (mm)
+  # tsw_t : quantite d'eau totale dans le voxel au temps t (mm)
+  # ftsw_t : fraction d'eau ranspirable = asw_t/tsw_t
+  # m_soil_vol : volume des voxels (m3)
+  # m_DA : densite apparente du sol par voxel (g.cm-3)
+  # m_Tsol: Temperature sol (degreC - entree actuellement forcee par meteo)
+  # Corg: (kg C dans le voxel)
+  # Norg: (kg N dans le voxel)
+  # m_NH4: (kg N NH4 dans le voxel)
+  # m_NO3: (kg N NO3 dans le voxel)
+  
+  #mise a jour de ttes les proprietes de sol dans l'interface sol
+  mysoil.set_3ds_properties(S, properties_3ds)
+  
+  
   frameDisplay(True)
   Viewer.frameGL.setBgColor(255,255,255)
   #Viewer.camera.setOrthographic() 
@@ -606,7 +640,7 @@ def Start():
 
 def StartEach():
   global mysoil
-  mysoil.add_property('root_density',0)
+  mysoil.add_property('root_length',0)
   properties_3ds = ['asw_t', 'tsw_t', 'Corg', 'Norg', 'm_NO3', 'm_NH4', 'm_soil_vol', 'm_Tsol', 'm_DA', 'ftsw_t']
   # signification des properties:
   # asw_t : quantite d'eau libre pour plante dans le voxel au temps t (mm)
@@ -627,7 +661,7 @@ def StartEach():
 
 
 def EndEach(lstring,lscene):
-  global mtg,TPS,id_site,branch,scales,parameters,pointes, branch,les_pointes,les_primordiums,cumlen,out,profmax,nbpte,TT,decalj,MSRacFine,P_SC, mysoil, S, stateEV
+  global mtg,TPS,id_site,branch,scales,parameters,pointes, branch,les_pointes,les_primordiums,cumlen,out,profmax,nbpte,TT,decalj,MSRacFine,P_SC, mysoil, S, stateEV,TTdays
   TPS=TPS+1
   tempete=t.time()
   mtg=axialtree2mtg2(lstring, scales, lscene, parameters)
@@ -666,12 +700,12 @@ def EndEach(lstring,lscene):
   Rain = [0.]*nb_jours
   Irrig = [0.]*nb_jours
   epsi = [0.9999]*nb_jours #efficience d'interceptio plante ; 1: voit que effet transpi
-  Et0 = [0.5]*nb_jours #ETP (mm)
+  Et0 = [0.1]*nb_jours #ETP (mm)
   
-  
-  ls_roots = [soil3D2s3DSprop(mysoil, S, 'root_density')]
-  ls_transp, evapo_tot, ls_drainage, stateEV,  ls_m_transpi, m_evap, ls_ftsw = S.stepWBmc(Et0[j], ls_roots, [epsi[j]], Rain[j], Irrig[j], stateEV)
-  
+  if TPS in TTdays:#fait step wtaer balance pas tous les degres jours: uniquement 1 fois par jour (TT indiques dans TTdays)
+    ls_roots = [soil3D2s3DSprop(mysoil, S, 'root_length')]
+    ls_transp, evapo_tot, ls_drainage, stateEV,  ls_m_transpi, m_evap, ls_ftsw = S.stepWBmc(Et0[j], ls_roots, [epsi[j]], Rain[j], Irrig[j], stateEV)
+    print 'tp water balance:', TPS
   
   #frameDisplay(True)
   #Viewer.display(lscene)
@@ -685,6 +719,9 @@ def End():
   global timing,chemin_fichier,out, path_leg, ongletP, Rseed
   #chemin_fichier.close()
   print 'Execution time :',t.time()-timing
+  print mysoil.m['root_length'][:,:,0]
+  print mysoil.m['ftsw_t'][:,:,0]
+  
   #ecriture en sortie du profil racinaire
   resrootpath = os.path.join(path_leg, 'toto_out_root_'+ongletP+"_seed"+str(Rseed)+'.csv')
   f = file (resrootpath, 'w')
@@ -758,6 +795,7 @@ pointe(X):
     elongation=CroissanceRacine(X,profondeur) * P_SC
     X.longueur=X.longueur+elongation
     
+    ## distance interafi modulee par sol!!!?
     distInterRamif=P_distRamif * float(Sol[Couche(profondeur)][1])
     
     init=1
@@ -774,8 +812,8 @@ pointe(X):
       (X.Tortue,X.posO)=Gravitropisme(vertex_pointe,X.segment,profondeur,longSegNorm,init)
       if X.segment==0:
         X.segment=1
-      Z=seg(TPS,X.diametre,distInterRamif,X.id_pointe,ordre=X.ordre,posO=X.posO)
-      nproduce SetHead(X.Tortue[0][0],X.Tortue[1][0],X.Tortue[2][0],X.Tortue[0][2],X.Tortue[1][2],X.Tortue[2][2])segment(Z)
+      Z=seg(TPS,X.diametre,distInterRamif,X.id_pointe,ordre=X.ordre)
+      nproduce SetHead(X.Tortue[0][0],X.Tortue[1][0],X.Tortue[2][0],X.Tortue[0][2],X.Tortue[1][2],X.Tortue[2][2])?P segment(Z) ?P
       diam=tireDiamPointeFille(X.diametre)
       num_primordium=num_primordium+1
       param=primord(id_primord=num_primordium,age=0,diametre=diam,Dmax_i=diam,Tortue=X.Tortue,id_pointe_axe=X.id_pointe,posO=X.posO,ordre=X.ordre+1)
@@ -862,12 +900,12 @@ Primordium(X):
 #    nproduce segment(X)
 #  produce
 
-segment(X):
+?P(p0) segment(X) ?P(p1):
   ordre = int(X.ordre)
   cumlen[ordre] += X.longueur
-  #print 'pos', X.posO, ' len ',  X.longueur
   # a ajouter ici increment d'une grille de sol en longueur de racine (segment en mm)
-  mysoil.incValueAt('root_density',X.posO/10,  X.longueur/10)# a passer en cm!
+  mysoil.incValueAt('root_length',((p0+p1)/2)/10,  X.longueur/1000)# a passer mm en cm pour position grille! et en m pour longueur de racine #ici longueur cumulee par voxel pas densite -> OK pour ls_roots
+  #print 'cumlen', sum(cumlen)/10, ' soil len', np.sum(mysoil.m['root_length'])#donne bien la meme chose
   
 
 
@@ -888,12 +926,18 @@ wRuler():
 
 Grid :
   if PLOT_PROPERTY !=-1:
-    if PLOT_PROPERTY == 'root_density':
-      sc = mysoil.pgl_representation(property_name=PLOT_PROPERTY, sizeratio = 1, transparency = 0.5,  minvalue = 0.01, maxvalue = 7, cmview=True, scalefunc = lambda x : log(x +1), scaling = 10 )
+    if PLOT_PROPERTY == 'root_length':
+      sc = mysoil.pgl_representation(property_name=PLOT_PROPERTY, sizeratio = 1, transparency = 0.5,  minvalue = 0.01/100, maxvalue = 1, cmview=True, scalefunc = lambda x : log(x +1), scaling = 10 )
+    elif PLOT_PROPERTY == 'ftsw_t':
+      filter = mysoil.m['root_length']>0.
+      #mysoil.add_property('tempo', filter.astype('float'))# filtre pour n'afficher que voxels avec racine -> marche 
+      mysoil.add_property('tempo', filter.astype('float') * (mysoil.m[PLOT_PROPERTY] + 0.02/1000000))#filtre pour n'afficher que voxels avec racine et vaiable -> marche avec un epsilon superieur a borne min
+      #sc = mysoil.pgl_representation(property_name=PLOT_PROPERTY, sizeratio = 1, transparency = 0.5,  cmview=True, scalefunc = lambda x : 1-x, scaling = 10 )
+      sc = mysoil.pgl_representation(property_name='tempo', sizeratio = 1, transparency = 0.5,  minvalue = 0.01/1000000, maxvalue = 1., cmview=True, scalefunc = lambda x : x, scaling = 10 )
     else:
       sc = mysoil.pgl_representation(property_name=PLOT_PROPERTY, sizeratio = 1, transparency = 0.5,  cmview=True, scalefunc = lambda x : 1-x, scaling = 10 )
     produce @g(sc)
-
+#A faire: filtre des ftsw ou autres variables uniquement sur celles avec des racines -> cree une variable tempo, mais pour le moment cases qui disparaissent?? (pas pour le filtre en revache qui fonctionne
 
 endlsystem
 ###### INITIALISATION ######
