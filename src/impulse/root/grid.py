@@ -48,16 +48,16 @@ class AniResistanceGrid(Grid3D):
     def init_value(self):
         # 300 mm uniform 0 - 0.2
         # en dessous uniform V : 0. - 0.2 ; H : 0.3 - 0.5
-        print 'init'
+        print('init')
         self.vvalues = np.ones(self.size())* 0.2 #np.random.uniform(0,0.2,self.size())
         self.hvalues = np.ones(0.5,self.size())
         # self.hvalues = np.random.uniform(0.3,0.5,self.size())
         import itertools as it
-        deb = [self.origin[i]+self.voxelsize[i]/2. for i in xrange(3)]
+        deb = [self.origin[i]+self.voxelsize[i]/2. for i in range(3)]
         deb[2] = -self.layer+self.voxelsize[i]/2.
-        print deb
-        print self.upper
-        for vx,vy,vz in it.product(*[np.arange(deb[i],self.upper[i],self.voxelsize[i]) for i in xrange(3)]):
+        print(deb)
+        print(self.upper)
+        for vx,vy,vz in it.product(*[np.arange(deb[i],self.upper[i],self.voxelsize[i]) for i in range(3)]):
             ncid = self.cellIdFromPoint([vx,vy,vz])
             self.hvalues[ncid] = random.uniform(0.,0.2)
        
@@ -76,7 +76,7 @@ def nbgs(idx):
     ref = list(idx)
     res = []
     dim = grid.dimensions()
-    for d in xrange(3):
+    for d in range(3):
       if ref[d] > 0 : 
         lres = list(ref)
         lres[d] -= 1

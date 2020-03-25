@@ -143,7 +143,7 @@ def plot(g, prop_cmap='radius', cmap='jet', lognorm=False):
     for vid in colors:
         if vid in shapes:
             shapes[vid].appearance = pgl.Material(colors[vid])
-    scene = pgl.Scene(shapes.values())
+    scene = pgl.Scene(list(shapes.values()))
     return scene
 
 

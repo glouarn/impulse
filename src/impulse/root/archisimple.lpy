@@ -3,11 +3,13 @@ from openalea.plantgl.all import *
 import numpy as np
 from math import degrees, exp, pi, ceil, log
 import sys, os
+import importlib
 
 soilpath = os.path.join(os.getcwd(),os.path.pardir,'soil')
 if not soilpath in sys.path:
   sys.path += [soilpath]
-import soil as sl ; reload(sl)
+import soil as sl 
+importlib.reload(sl)
 
 module Segment(diameter, length)
 module Pointe (age, diameter, length, rolling) # coord direction
@@ -233,7 +235,7 @@ def __initialiseContext__(context):
 	    ctrlPointList = pgl.Point3Array([(0, 0.49711, 1),(0.162813, 0.810694, 1),(0.63921, 1.01734, 1),(1, 1.00578, 1)]) , 
 	    )
 	PRIM_CARBON_RESPONSE.name = "PRIM_CARBON_RESPONSE"
-	panel_0 = ({'active': True, 'visible': True, 'name': 'Panel 2'},[('Function',SUPPLY1),('Function',SUPPLY2),('Function',SUPPLY3),('Function',SUPPLY4),('Function',PRIM_CARBON_RESPONSE)])
+	panel_0 = ({'name': 'Panel 2', 'active': True, 'visible': True},[('Function',SUPPLY1),('Function',SUPPLY2),('Function',SUPPLY3),('Function',SUPPLY4),('Function',PRIM_CARBON_RESPONSE)])
 	parameterset = [panel_0,]
 	context["__functions__"] = [('SUPPLY1',SUPPLY1),('SUPPLY2',SUPPLY2),('SUPPLY3',SUPPLY3),('SUPPLY4',SUPPLY4),('PRIM_CARBON_RESPONSE',PRIM_CARBON_RESPONSE),]
 	context["__curves__"] = []

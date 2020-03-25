@@ -63,7 +63,7 @@ class Soil3D(object):
         return self.m[name]
 
     def property_names(self):
-        return self.m.keys()
+        return list(self.m.keys())
 
     def pgl_representation(self, cm='jet', property_name='QWater', sizeratio = 0.1, transparency = 0, minvalue = None, maxvalue = None, scalefunc = None, cmview = False, scaling = 1):
         """ return Plantgl scene """
@@ -102,7 +102,7 @@ class Soil3D(object):
         self.property(property_name)[self.indexFromPoint(pos)] = value
 
     def incValueAt(self, property_name, pos, value):
-        print pos, self.indexFromPoint(pos)
+        #print pos, self.indexFromPoint(pos)
         self.property(property_name)[self.indexFromPoint(pos)] += value
 
     def setLayerValue(self, property_name, layerdimension, layervalue, value):
@@ -113,7 +113,7 @@ class Soil3D(object):
             soil.setLayerValue('QWater', 2, range(0,3), 5)
         """
         assert 0 <= layerdimension < self.maxdimension
-        indices = [slice(None) for i in xrange(self.maxdimension)]
+        indices = [slice(None) for i in range(self.maxdimension)]
         indices[layerdimension] = layervalue
         indices = tuple(indices)
 

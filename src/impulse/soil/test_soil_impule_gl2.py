@@ -18,7 +18,7 @@ import impulse.soil.soil as soil_interface
 ## (pas d'entree d'eau + pas d'evaporation du sol avec epsi=1.)
 ########################
 
-nb_jours = 20
+nb_jours = 50#20#100
 Rain = [0.]*nb_jours
 Irrig = [0.]*nb_jours
 epsi = [0.9999]*nb_jours #efficience d'interceptio plante ; 1: voit que effet transpi
@@ -41,19 +41,19 @@ origin = [v*100 for v in origin]
 
 
 mysoil = soil_interface.Soil3D(origin, size_, dxyz_)
-print origin, size_, dxyz_
+print(origin, size_, dxyz_)
 
 from impulse.root.archisimple import ArchiSimpleModel
 
 rootmodel = ArchiSimpleModel(soil=mysoil)
-rootmodel.model.PLOT_PROPERTY = 'ftsw_t'
+rootmodel.model.PLOT_PROPERTY = 'root_density'#'ftsw_t'
 
-def soil3D2s3DSprop(struct1, struct2, propname):
-    propvalue = np.zeros(struct2.size)
-    for i in range(struct2.size[0]): 
-        propvalue[i,:,:] = struct1.m[propname][:,:,i]
-    return propvalue
-    ls_roots = [propvalue]
+#def soil3D2s3DSprop(struct1, struct2, propname):
+#    propvalue = np.zeros(struct2.size)
+#    for i in range(struct2.size[0]):
+#        propvalue[i,:,:] = struct1.m[propname][:,:,i]
+#    return propvalue
+
 
 def soil3D2s3DSprop(struct1, struct2, propname):
     return np.transpose(struct1.m[propname], (2,1,0) )
@@ -95,27 +95,14 @@ for j in range(nb_jours):
     #step de water balance
     ls_transp, evapo_tot, ls_drainage, stateEV,  ls_m_transpi, m_evap, ls_ftsw = S.stepWBmc(Et0[j], ls_roots, [epsi[j]], Rain[j], Irrig[j], stateEV)
 
-    s3DS2soil3D(S, mysoil, 'ftsw_t')
+    s3DS2soil3D(S, mysoil, 'ftsw_t')#en fait pas necessaire car deja fait dans .set_3ds_properties au debut de boucle
 
-    print j, ls_ftsw[0] #print de la fraction d'eau disponible percue par le systeme racinaire
+    print(j, ls_ftsw[0]) #print de la fraction d'eau disponible percue par le systeme racinaire
 
-rootmodel.plot()
-
-
+    rootmodel.plot()
 
 
 
-#test des reshape
-
-#ord='C'
-
-#x = np.ones([2,3,4], order=ord)
-#x[1,:,:] =0.
-
-#y = np.reshape(x, [3,4,2], order=ord)
-#y[:,:,0]
-
-#z = np.reshape(y, [2,3,4], order=ord)
 
 
 

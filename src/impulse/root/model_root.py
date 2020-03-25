@@ -2,7 +2,7 @@ import openalea.mtg as mtg
 import openalea.plantgl.all as pgl
 from openalea.mtg import turtle as turt
 from openalea.mtg.plantframe import color
-from root_mtg import plot
+from .root_mtg import plot
 
 
 # scene=plot(g)
@@ -54,7 +54,7 @@ for tps in range(STEPS):
                 nid_apex.length += dl
                 nid_apex.cumulatedlength += dl
 
-                print tps,nid_apex.length
+                print(tps,nid_apex.length)
 
                 if nid_apex.length > sgl:
                     nid_apex.label='S'
