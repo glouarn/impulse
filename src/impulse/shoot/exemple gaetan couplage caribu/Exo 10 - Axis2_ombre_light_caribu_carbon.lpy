@@ -1,0 +1,157 @@
+from math import exp
+from openalea.plantgl.all import *
+
+#Imports caribu
+from alinea.caribu.CaribuScene import CaribuScene
+#from alinea.caribu.sky_tools import turtle, GenSky, GetLight
+
+#pas de temps = degrejours!
+
+
+def expansion(t, a, delai):
+    "croissance sigmoidale"
+    return 1/(1+exp(-a*(t-delai)))
+
+def CarbonAssimilation(RelativeLightAbs, IncomingLight, RUE, Soilsurf=1.):
+    epsi = RelativeLightAbs/Soilsurf
+    C = epsi * IncomingLight * RUE
+    return C
+
+
+def updateLight_Lsyst(lstring, aggregated_out):
+    Dico_Par = aggregated_out['default_band']['Ei']
+    cumlight = 0.
+    for mod in range(len(lstring)):
+        if lstring[mod].name == 'A' or lstring[mod].name == 'B':
+            # index = mod.name.index
+            #print(mod, lstring[mod].name)
+            calcpar = Dico_Par[mod]
+            lstring[mod][1] = calcpar
+        elif lstring[mod].name == 'Leaf':
+            cumlight += Dico_Par[mod] * aggregated_out['default_band']['area'][ mod]  # a ponderer par surface, eventuellement selon id plante
+
+    return lstring, cumlight
+
+
+#parametres plante
+Lfeuille = 0.9
+Lpetiole = 0.9
+Len = 1
+Dtige = 0.07
+phyllochron = 20 
+a = 0.05
+delaiF = 50
+delaiE = 0
+delaiLbud = 2*phyllochron
+treshPAR = 0.02
+RUE = 2. #gMS.MJ-1
+AllocRoot = 0.2
+
+
+#Plant variables
+MS = 0.001
+dMSRoot = MS*AllocRoot
+
+# Meteo
+IncomingLight = 0.001#MJ.m-2-degredays-1 (jour cumulant 10 degres days)
+
+# Init light
+Dico_Par = {}
+calcpar = 0
+
+
+#carto positions plantes
+carto = [[0.,0.,0.], [5.,5.,0.]] #cm
+
+#option
+visu_ombre=1
+external_coupling=0
+
+def StartEach():
+    #global dotest
+    #dotest = ((getIterationNb()/phyllochron % 2) == 0)
+    pass
+
+
+def EndEach(lstring,lscene):
+    global calcpar, Dico_Par, MS, dMSRoot
+    if external_coupling==1:
+        pass
+    else:
+        # Calculs de caribu et sortie du Dico contenant les valeurs de rayonnement
+        cc_scene = CaribuScene(scene = lscene)
+        raw, aggregated_out = cc_scene.run(direct = True, infinite = False)
+        #print(aggregated_out)
+        #print(lstring)
+        
+        lstring, cumlight = updateLight_Lsyst(lstring, aggregated_out)
+        #Dico_Par = aggregated_out[1]['default_band']['Ei']
+        #cumlight = 0.
+        #for mod in range(len(lstring)) :
+        #    if lstring[mod].name == 'A' or lstring[mod].name == 'B':
+        #                #index = mod.name.index
+        #            calcpar = Dico_Par[mod]
+        #            lstring[mod][1] = calcpar
+        #    elif lstring[mod].name == 'Leaf':
+        #            cumlight += Dico_Par[mod] * aggregated_out[1]['default_band']['area'][mod]#a ponderer par surface, eventuellement selon id plante
+        
+        #Carbon assimilation and allocation
+        dMS = CarbonAssimilation(cumlight, IncomingLight, RUE, Soilsurf=1.)
+        MS += dMS
+        dMSRoot = dMS*AllocRoot
+        print(cumlight, dMS,MS,dMSRoot)
+
+
+module plante(nump) #partie aerienne de plante
+module A(age, PAR,rank) # Apex primaire
+module En(age) # Entre-noeud
+module Pet(age) # Petiole
+module Leaf(age) # Feuille
+module B(age, PAR) # Apex d'axe secondaire
+
+module ombre # ombriere
+
+
+
+Axiom: [ombre][plante(0)A(0, 1.,0)]#[plante(1)A(0, 1.,0)]
+
+derivation length: 20*phyllochron
+production:
+A(age, PAR,rank):
+    if age >= phyllochron and PAR>treshPAR and rank%2==0: #branche a +45
+        produce En(0)[Pet(0)Leaf(0)][+(45)B(-delaiLbud, 1.)]A(0, 1., rank+1)
+    elif age >= phyllochron and PAR>treshPAR and rank%2!=0 : #branche a -45
+        produce En(0)[Pet(0)Leaf(0)][-(45)B(-delaiLbud, 1.)]A(0, 1., rank+1)
+    else:        
+        produce A(age+1, PAR, rank)
+
+En(age) --> En(age+1)
+Pet(age) --> Pet(age+1)
+Leaf(age) --> Leaf(age+1)
+
+B(age, PAR):
+    if age >= phyllochron and PAR>treshPAR:
+      produce En(0)[Pet(0)Leaf(0)]B(0, 1.)
+    else:
+      produce B(age+1, PAR)
+
+
+
+interpretation:
+plante(nump) --> @M(carto[nump][0], carto[nump][1], carto[nump][2])&(90) #place au point initial carto
+En(age) --> SetColor(2)F(Len*expansion(age, a, delaiE),Dtige)
+A(age, PAR,rank) --> SetColor(3)f(0.2)Sphere(1.3*Dtige)
+Pet(age) --> SetColor(2)^(90)F(Lpetiole*expansion(age, a, delaiF),0.75*Dtige)
+Leaf(age) :
+    l = Lfeuille*expansion(age, a, delaiF)
+    produce SetColor(2)^(90)f(l/2)@o(l/2)
+
+B(age, PAR) --> SetColor(4)f(0.2)Sphere(1.3*Dtige)
+
+ombre :
+    if visu_ombre==1:
+      produce SetColor(1)&(90)@M(-8.,6.,3.)@g(Box(0.05,5.,5.))
+
+endlsystem
+
+#plante en run direct?? pas en animate??
