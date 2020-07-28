@@ -67,11 +67,20 @@ def Split_outkeys(aggregated_out, Id_Shapes1, Id_Shapes2, decal):
     return aggregated1, aggregated2
 
 
+def calc_epsi(ls_cumlight, surfsolref=1., I0=1.):
+    ls_epsi= []
+    for cumlight in ls_cumlight:
+        ls_epsi.append(cumlight/(surfsolref*I0))
+    return ls_epsi
 
 
 # intitialisation modele sol
 ## creation d'un objet sol 3ds par defaut (S) - definit avant le modele de plante car sert a instancier la grille
-pattern8 = [[-15.,-15.], [15.,15.]]#cm[[-50.,-50.], [50.,50.]]#
+pattern8 = [[-50.,-50.], [50.,50.]]#[[-15.,-15.], [15.,15.]]#cm
+Lsol = max((pattern8[1][0]-pattern8[0][0])/100., (pattern8[1][1]-pattern8[0][1])/100.)#m
+largsol = min((pattern8[1][0]-pattern8[0][0])/100., (pattern8[1][1]-pattern8[0][1])/100.)#m
+surfsolref = Lsol*largsol #m2
+
 dz= 5.
 S = init_sol_test(pattern8, dz=dz, size=[10,10,30]) #en cm / nb voxel
 stateEV = [0.,0.,0.]
@@ -84,7 +93,7 @@ properties_3ds = ['asw_t', 'tsw_t', 'Corg', 'Norg', 'm_NO3', 'm_NH4', 'm_soil_vo
 nb_jours=100
 dTT=10
 TTdays = range(1,nb_jours*dTT,dTT) # TT des changements de jour auquel faire le calcul de bilan hydrique / Sol
-Rain = [0.]*nb_jours
+Rain = [10.]*nb_jours
 Irrig = [0.]*nb_jours
 epsi = [0.9999]*nb_jours #efficience d'interceptio plante ; 1: voit que effet transpi
 Et0 = [0.1]*nb_jours #ETP (mm)
@@ -139,8 +148,6 @@ lsystem2R.PLOT_PROPERTY = -1#'root_length'#
 
 
 
-
-
 #test run couplage externe
 
 NBSTEPS = 300
@@ -172,8 +179,12 @@ for i in range(NBSTEPS):
     #print('Et hopla !', Id_Shapes2)
 
     # run caribu
-    cc_scene = CaribuScene(scene=Lscene_coupled)
-    raw, aggregated_out = cc_scene.run(direct=True, infinite=False)
+    Pattern = (pattern8[0][0], pattern8[0][1], pattern8[1][0], pattern8[1][1]) #pattern8 untilise pour definir le sol
+    cc_scene = CaribuScene(scene=Lscene_coupled,  pattern=Pattern, scene_unit='cm')  #ciel vertical + pattern
+    raw, aggregated_out = cc_scene.run(direct=True, infinite=True)
+
+    #cc_scene = CaribuScene(scene=Lscene_coupled)
+    #raw, aggregated_out = cc_scene.run(direct=True, infinite=False)
 
     #  mise a jour variable plante dans chaque l-system
     aggregated1, aggregated2 = Split_outkeys(aggregated_out, Id_Shapes1, Id_Shapes2, decal=len(Lstring1))
@@ -203,7 +214,8 @@ for i in range(NBSTEPS):
     print('Offc', OffrCR1, OffrCR2, lsystem1R.P_SC, lsystem2R.P_SC)
 
     #MAJ espi
-    epsi = [0.9999] * nb_jours #a reprendre
+    #ls_epsi = [0.9999/2., 0.9999/2.] #* nb_jours #a reprendre
+    ls_epsi = calc_epsi([cumlight1, cumlight2], surfsolref, I0=1.)#calcul sur ciel normalise
 
     # derive d'1 step chaque l-system
     Lstring1R = lsystem1R.derive(Lstring1R,1)#derive sur un pas de temps
@@ -217,9 +229,9 @@ for i in range(NBSTEPS):
     if i in TTdays: #si TT celui d'un passage de jour
         r1 = lsystem1R.soil3D2s3DSprop(lsystem1R.mysoil, S, 'root_length')
         r2 =lsystem2R.soil3D2s3DSprop(lsystem2R.mysoil, S, 'root_length')
-        ls_roots = [r2]#+[r2]
-        print('ls_roots', r1.sum(), r2.sum())
-        ls_transp, evapo_tot, ls_drainage, stateEV,  ls_m_transpi, m_evap, ls_ftsw = S.stepWBmc(Et0[j], ls_roots, [epsi[j]], Rain[j], Irrig[j], stateEV)
+        ls_roots = [r1, r2]
+        print('ls_roots', r1.sum(), r2.sum(),r1.shape,r2.shape)
+        ls_transp, evapo_tot, ls_drainage, stateEV,  ls_m_transpi, m_evap, ls_ftsw = S.stepWBmc(Et0[j], ls_roots, ls_epsi, Rain[j], Irrig[j], stateEV)
         print ('tp water balance externe:', i, ls_ftsw)
 
     # mise a zero compteur racine et a jour
@@ -231,11 +243,9 @@ for i in range(NBSTEPS):
     #a faire: reinjecter FSTW et etats plantes
 
 
-#couplage des deux l-systeme pour bilan hydrique fait planter (ls_roots?)
-#water_uptakeVox
-#    uptake_vox = (ls_transp[p] * (frac_root+frac_asw))/2.
-#+ espi pas mis a jour
-#
+#couplage des deux l-systeme pour bilan hydrique fait plus planter
+#+ espi mis a jour
+# mais ls_ftsw reste a nan... a creuser
 
 
 
